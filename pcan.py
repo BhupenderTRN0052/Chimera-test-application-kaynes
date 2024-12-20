@@ -129,6 +129,7 @@ def main():
             # Send the CAN message
         send_can_message(0x607, data)
         time.sleep(5)
+        messagebox.showinfo("Information", "Test Completed. Press START TEST button to restart or EXIT to quit application")
     except KeyboardInterrupt:
         print("Process interrupted by user.")
     finally:
@@ -149,11 +150,11 @@ def create_gui():
     root.geometry("350x500")
 
     # Add a button to start the main function
-    start_button = tk.Button(root, text="Start Test", command=run_main_in_thread, font=("Arial", 12))
+    start_button = tk.Button(root, text="START TEST", command=run_main_in_thread, font=("Arial", 12))
     start_button.pack(pady=20)
 
     # Add a button to close the application
-    exit_button = tk.Button(root, text="Exit", command=root.quit, font=("Arial", 12))
+    exit_button = tk.Button(root, text="EXIT", command=root.quit, font=("Arial", 12))
     exit_button.pack(pady=20)
 
     # Run the GUI event loop
