@@ -2,8 +2,12 @@ import ctypes
 import time
 import sys
 import tkinter as tk
-from threading import Thread
 from tkinter import messagebox
+from tkinter import ttk
+from threading import Thread
+
+fade_animation_running = True
+
 # Load the PCANBasic DLL
 pcan = ctypes.windll.LoadLibrary("PCANBasic.dll")
 
@@ -16,24 +20,25 @@ def can_init():
     result = pcan.CAN_Initialize(PCAN_USBBUS1, PCAN_BAUD_250K)
     if result != 0:
         print(f"Initialization failed with error code: {result}")
+        messagebox.showerror("Error", f"Initialization failed with error code: {result}")
         sys.exit(10)
-    else:
-        print("PCAN initialized successfully.")
 
 # Function to send CAN message
 def send_can_message(can_id, data):
-    class  xTPCANMsg(ctypes.Structure):
-        _fields_ = [("ID", ctypes.c_uint32),
-                    ("MSGTYPE", ctypes.c_ubyte),
-                    ("LEN", ctypes.c_ubyte),
-                    ("DATA", ctypes.c_ubyte * 8)]
-    
+    class xTPCANMsg(ctypes.Structure):
+        _fields_ = [
+            ("ID", ctypes.c_uint32),
+            ("MSGTYPE", ctypes.c_ubyte),
+            ("LEN", ctypes.c_ubyte),
+            ("DATA", ctypes.c_ubyte * 8),
+        ]
+
     # Create a message object
     msg = xTPCANMsg()
     msg.ID = can_id
     msg.MSGTYPE = 0  # Standard message
     msg.LEN = len(data)
-    
+
     for i in range(len(data)):
         msg.DATA[i] = data[i]
 
@@ -50,118 +55,126 @@ def can_de_init():
     print("PCAN uninitialized.")
 
 # Main function
-def main():
-    
+def main(progress_bar, progress_label, indicator_label):
     can_init()
-    
+    total_steps = 244
+    current_step = 0
+
     try:
-           
-        #Sending speed from 1 to 100
+        fade_in_out(indicator_label)
+
+        # Sending speed from 1 to 100
         for value in range(1, 101):
-            # Prepare the data (only using the first byte)
-            data = [1] * 8  
-            
+            data = [1] * 8
             data[1] = value
-            # Send the CAN message
-            send_can_message(0x607, data)  # Replace 0x607 with your desired CAN ID
-
-            # Wait for 0.2 seconds between each send
+            send_can_message(0x607, data)
             time.sleep(0.2)
-            
-        #Sending speed data from 100 to 0
+
+            current_step += 1
+            update_progress(progress_bar, progress_label, current_step, total_steps)
+
+        # Sending speed from 100 to 0
         for value in range(1, 102):
-            # Prepare the data (only using the first byte)
-            data = [1] * 8  # 8 bytes of data; adjust if necessary
-            data[1] = 101-value
-            # Send the CAN message
-            send_can_message(0x607, data)  # Replace 0x607 with your desired CAN ID
+            data = [1] * 8
+            data[1] = 101 - value
+            send_can_message(0x607, data)
             time.sleep(0.2)
-            
-        # Function to send SOC from 1 to 100
-        # def send_soc_messages():
-        for soc_value in range(100, 1001,50 ):  # Range from 0 to 1000, representing 0% to 100%
-            data = [0] * 8  # 8 bytes of data
-        
-            data[1] = soc_value & 0xFF  
-            data[0] = (soc_value >> 8) & 0xFF  
-        
-            send_can_message(0x602, data)  # Send message with CAN ID 0x602
-            time.sleep(0.5)  # Add delay to mimic real-time data flow
-            
-        # # Function to send SOC from 100 to 1
-        # def send_soc_messages():
-        for soc_value in range(1001,100,-50 ):  # Range from 0 to 1000, representing 0% to 100%
-            data = [0] * 8  # 8 bytes of data
-        
-            data[1] = soc_value & 0xFF  
-            data[0] = (soc_value >> 8) & 0xFF  
-        
-            send_can_message(0x602, data)  # Send message with CAN ID 0x602
-            time.sleep(0.5)  # Add delay to mimic real-time data flow
 
-        data = [0] * 8  # 8 bytes of data; adjust if necessary
-            
-        data[0] = 1
-            # Send the CAN message
-        send_can_message(0x607, data)
-        time.sleep(5)
-        data[0] = 18
-            # Send the CAN message
-        send_can_message(0x607, data)
-        time.sleep(5)
-        data[0] = 20
-            # Send the CAN message
-        send_can_message(0x607, data)
-        time.sleep(5)
-        data[0] = 17
-            # Send the CAN message
-        send_can_message(0x607, data)
-        time.sleep(5)
-        data[0] = 34
-            # Send the CAN message
-        send_can_message(0x607, data)
-        time.sleep(5)
-        data[0] = 66
-            # Send the CAN message
-        send_can_message(0x607, data)
-        time.sleep(5)
-        data[0] = 17
-            # Send the CAN message
-        send_can_message(0x607, data)
-        time.sleep(5)
+            current_step += 1
+            update_progress(progress_bar, progress_label, current_step, total_steps)
+
+        # Sending SOC from 1 to 100
+        for soc_value in range(100, 1001, 50):
+            data = [0] * 8
+            data[1] = soc_value & 0xFF
+            data[0] = (soc_value >> 8) & 0xFF
+            send_can_message(0x602, data)
+            time.sleep(0.5)
+
+            current_step += 1
+            update_progress(progress_bar, progress_label, current_step, total_steps)
+
+        # Sending SOC from 100 to 1
+        for soc_value in range(1001, 100, -50):
+            data = [0] * 8
+            data[1] = soc_value & 0xFF
+            data[0] = (soc_value >> 8) & 0xFF
+            send_can_message(0x602, data)
+            time.sleep(0.5)
+
+            current_step += 1
+            update_progress(progress_bar, progress_label, current_step, total_steps)
+
+        # Final test sequence
+        for value in [1, 18, 20, 17, 34, 66, 17]:
+            data = [0] * 8
+            data[0] = value
+            send_can_message(0x607, data)
+            time.sleep(5)
+
+            current_step += 1
+            update_progress(progress_bar, progress_label, current_step, total_steps)
+
         messagebox.showinfo("Information", "Test Completed. Press START TEST button to restart or EXIT to quit application")
     except KeyboardInterrupt:
         print("Process interrupted by user.")
     finally:
         can_de_init()
 
+# Function to update the progress bar and label
+def update_progress(progress_bar, progress_label, current, total):
+    global fade_animation_running
+    progress = int((current / total) * 100)
+    progress_bar['value'] = progress
+    progress_label.config(text=f"Completed: {progress}%")
+    progress_bar.update()
+
+    if progress >= 100:
+        fade_animation_running = False
+
+# Animation
+def fade_in_out(indicator_label, alpha=0):
+    if fade_animation_running:
+        alpha = (alpha + 0.1) % 1.0
+        indicator_label.config(fg=f'#{int(alpha * 255):02x}{int(alpha * 255):02x}{int(alpha * 255):02x}')
+        indicator_label.after(100, fade_in_out, indicator_label, alpha)
 
 # Function to run `main` in a separate thread
-def run_main_in_thread():
-    thread = Thread(target=main)
-    thread.daemon = True  # Ensures thread exits when the GUI is closed
+def run_main_in_thread(progress_bar, progress_label, indicator_label):
+    global fade_animation_running
+    fade_animation_running = True
+    thread = Thread(target=main, args=(progress_bar, progress_label, indicator_label))
+    thread.daemon = True
     thread.start()
-
 
 # Creating the GUI
 def create_gui():
     root = tk.Tk()
     root.title("Chimera Test Application | Kayens Technology")
-    root.geometry("350x500")
+    root.geometry("400x300")
 
-    # Add a button to start the main function
-    start_button = tk.Button(root, text="START TEST", command=run_main_in_thread, font=("Arial", 12))
+    # Start button
+    start_button = tk.Button(root, text="START TEST", command=lambda: run_main_in_thread(progress_bar, progress_label, indicator_label), font=("Arial", 12, "bold"), bg="green", fg="white")
     start_button.pack(pady=20)
 
-    # Add a button to close the application
-    exit_button = tk.Button(root, text="EXIT", command=root.quit, font=("Arial", 12))
+     # Progress bar
+    progress_bar = ttk.Progressbar(root, orient="horizontal", length=350, mode="determinate")
+    progress_bar.pack(pady=20)
+
+    # Progress label
+    progress_label = tk.Label(root, text="Completed: 0%", font=("Arial", 10, "bold"))
+    progress_label.pack(pady=10)
+
+    # Indicator label
+    indicator_label = tk.Label(root, text="●", font=("Arial", 30, "bold"), fg="green")
+    indicator_label.place(x=345, y=10)
+
+    # Exit button
+    exit_button = tk.Button(root, text="EXIT", command=root.quit, font=("Arial", 12, "bold"), bg="red", fg="white")
     exit_button.pack(pady=20)
 
-    # Run the GUI event loop
     root.mainloop()
-
 
 # Run GUI
 if __name__ == "__main__":
-    
-   create_gui()
+    create_gui()
