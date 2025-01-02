@@ -7,6 +7,7 @@ from tkinter import ttk
 from threading import Thread
 
 fade_animation_running = True
+test_running = False
 
 # Load the PCANBasic DLL
 pcan = ctypes.windll.LoadLibrary("PCANBasic.dll")
@@ -120,10 +121,12 @@ def main(progress_bar, progress_label, indicator_label):
         print("Process interrupted by user.")
     finally:
         can_de_init()
+        global test_running
+        test_running = False
 
 # Function to update the progress bar and label
 def update_progress(progress_bar, progress_label, current, total):
-    global fade_animation_running
+    global fade_animation_running, test_running
     progress = int((current / total) * 100)
     progress_bar['value'] = progress
     progress_label.config(text=f"Completed: {progress}%")
@@ -131,18 +134,24 @@ def update_progress(progress_bar, progress_label, current, total):
 
     if progress >= 100:
         fade_animation_running = False
+        test_running = False
 
 # Animation
 def fade_in_out(indicator_label, alpha=0):
     if fade_animation_running:
         alpha = (alpha + 0.1) % 1.0
-        indicator_label.config(fg=f'#{int(alpha * 255):02x}{int(alpha * 255):02x}{int(alpha * 255):02x}')
+        green_value = int(alpha * 255)
+        indicator_label.config(fg=f'#00{green_value:02x}00')
         indicator_label.after(100, fade_in_out, indicator_label, alpha)
 
 # Function to run `main` in a separate thread
 def run_main_in_thread(progress_bar, progress_label, indicator_label):
-    global fade_animation_running
+    global fade_animation_running, test_running
+    if test_running:
+        messagebox.showwarning("Warning", "Test is already running.")
+        return
     fade_animation_running = True
+    test_running = True
     thread = Thread(target=main, args=(progress_bar, progress_label, indicator_label))
     thread.daemon = True
     thread.start()
